@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Part_3_Lesson_4.Repositories;
 using System;
@@ -53,16 +54,38 @@ namespace Part_3_Lesson_4.Controllers
         [HttpPost("authentication")]
         public IActionResult Authitication([FromQuery] string name , string pas)
         {
-            string token =userService.Authentication(name, pas);
-            if (string.IsNullOrWhiteSpace(token))
+            REsponseToken token =userService.Authentication(name, pas);//получаем наш токен 
+            if (token is null)
             {
                 return BadRequest(new { message = "Name or Pas is incorect" });
             }
+            SetTokenCucki(token.Refreshtoken);  //добавляем его в куки 
             return Ok(token);
         }
-        public IActionResult Index()
+
+        [Authorize]
+        [HttpPost("refresh-token")]
+        public IActionResult Refresh()
         {
-            return View();
+            string oldRefreshToken = Request.Cookies["refresh-token"];
+            string newrefreshToken = userService.REfreshToken(oldRefreshToken);
+            if (string.IsNullOrWhiteSpace(newrefreshToken))
+            {
+                return Unauthorized(new { message = "invalid token" });
+            }
+            SetTokenCucki(newrefreshToken);
+            return Ok(newrefreshToken);
+        }
+
+
+        private void SetTokenCucki(string token)//метод для доавбления в куки 
+        {
+            var cockeiOption = new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            Response.Cookies.Append("refreshToken", token, cockeiOption);
         }
     }
 }

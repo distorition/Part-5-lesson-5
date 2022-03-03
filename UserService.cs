@@ -12,28 +12,28 @@ namespace Part_3_Lesson_4
 {
     public class UserService:IUserServices
     {
-        private IDictionary<string, string> users = new Dictionary<string, string>()
+        private IDictionary<string, AuthPEsponse> users = new Dictionary<string, AuthPEsponse>()
         {
-            {"test","test" }
+            {"test",new AuthPEsponse(){Password="test" } }
         };
         public  const string SecreteCode = "aaaaa";
-    public string Authentication(string name , string pass)
-        {
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(pass))
-            {
-                return string.Empty;
-            }
-            int i = 0;
-            foreach( var item in users)
-            {
-                i++;
-                if (string.CompareOrdinal(item.Key, name) == 0 || string.CompareOrdinal(item.Key, pass) == 0)
-                {
-                    return GenerateJwToken(i);
-                }
-            }
-            return string.Empty;
-        }
+    //public string Authentication(string name , string pass)
+    //    {
+    //        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(pass))
+    //        {
+    //            return string.Empty;
+    //        }
+    //        int i = 0;
+    //        foreach( var item in users)
+    //        {
+    //            i++;
+    //            if (string.CompareOrdinal(item.Key, name) == 0 || string.CompareOrdinal(item.Key, pass) == 0)
+    //            {
+    //                return GenerateJwToken(i);
+    //            }
+    //        }
+    //        return string.Empty;
+    //    }
 
         public string GenerateJwToken(int id)
         {
@@ -55,5 +55,69 @@ namespace Part_3_Lesson_4
             return jwt.WriteToken(security);
         }
 
+        public  REsponseToken Authentication(string user, string password)
+        {
+            if (string.IsNullOrWhiteSpace(user)||string.IsNullOrWhiteSpace(password))
+            {
+                return null;
+            }
+
+            REsponseToken rEsponse = new REsponseToken();
+            int i = 0;
+            foreach (KeyValuePair<string, AuthPEsponse> pair in users)
+            {
+                i++;
+                if (string.CompareOrdinal(pair.Key, user) == 0 || string.CompareOrdinal(pair.Value.Password, password) == 0)
+                {
+                    rEsponse.Token = GenerateJwToken(i, 15);
+                    RegreshToken regresh = GenerateRefreshToken(i);
+                    pair.Value.LatesToken = regresh;
+                    rEsponse.Refreshtoken = regresh.Toke;
+                    return rEsponse;
+
+                }
+            }
+
+            return null;
+        }
+
+        private string GenerateJwToken(int id, int minute)
+        {
+            JwtSecurityTokenHandler jwtSecurity = new JwtSecurityTokenHandler();
+            byte[] key = Encoding.ASCII.GetBytes(SecreteCode);
+            SecurityTokenDescriptor securityToken = new SecurityTokenDescriptor()
+            {
+                Subject = new ClaimsIdentity(new Claim[] {
+                new Claim(ClaimTypes.Name,id.ToString())
+                }),
+                Expires = DateTime.UtcNow.AddMinutes(minute),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256)
+            };
+
+            SecurityToken security = jwtSecurity.CreateToken(securityToken);
+            return jwtSecurity.WriteToken(security);
+        }
+        public RegreshToken GenerateRefreshToken(int id)
+        {
+            RegreshToken regreshToken = new RegreshToken();
+            regreshToken.Expires = DateTime.UtcNow.AddMinutes(360);
+            regreshToken.Toke = GenerateJwToken(id, 360);
+            return regreshToken;
+        }
+        public string REfreshToken(string token)
+        {
+            int i = 0;
+            foreach(KeyValuePair<string,AuthPEsponse> pair in users)
+            {
+                i++;
+                if(string.CompareOrdinal(pair.Value.LatesToken.Toke,token)==0&&pair.Value.LatesToken.isExpires is false)
+
+                {
+                    pair.Value.LatesToken = GenerateRefreshToken(i);
+                    return pair.Value.LatesToken.Toke;
+                }
+            }
+            return string.Empty;
+        }
     }
 }
